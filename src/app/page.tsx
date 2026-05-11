@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { updateCard, useCards } from "@/lib/storage";
@@ -118,12 +123,12 @@ function Session({
       </div>
 
       <Card>
-        <CardContent className="py-8 text-center space-y-2">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            Definition
-          </div>
-          <div className="text-lg">{current?.definition}</div>
-        </CardContent>
+        <CardHeader>
+          <CardDescription>Definition</CardDescription>
+          <CardTitle className="text-lg font-normal">
+            {current?.definition}
+          </CardTitle>
+        </CardHeader>
       </Card>
 
       <form onSubmit={onSubmit} className="space-y-3">
