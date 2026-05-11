@@ -24,18 +24,19 @@ function getSnapshot(): Flashcard[] {
   return cache;
 }
 
-function subscribe(l: Listener) {
-  listeners.add(l);
-  const onStorage = (e: StorageEvent) => {
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
     if (e.key === KEY) {
       cache = null;
-      l();
+      for (const l of listeners) l();
     }
-  };
-  window.addEventListener("storage", onStorage);
+  });
+}
+
+function subscribe(l: Listener) {
+  listeners.add(l);
   return () => {
     listeners.delete(l);
-    window.removeEventListener("storage", onStorage);
   };
 }
 
