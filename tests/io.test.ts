@@ -20,12 +20,30 @@ describe("toJSON", () => {
     const cards = [card(), card({ id: "id-2", word: "bye" })];
     expect(JSON.parse(toJSON(cards))).toEqual(cards);
   });
+
+  test("pretty-prints with 2-space indentation", () => {
+    const out = toJSON([card({ word: "a", definition: "b" })]);
+    // Array items get 2-space indent, their fields get 4-space.
+    expect(out).toContain('[\n  {\n    "id":');
+  });
+
+  test("empty list yields '[]'", () => {
+    expect(toJSON([])).toBe("[]");
+  });
 });
 
 describe("toCSV", () => {
-  test("emits header + rows", () => {
+  const PREAMBLE = "﻿sep=,\r\n";
+
+  test("emits Excel preamble + header + rows with CRLF", () => {
     const out = toCSV([card({ word: "a", definition: "b" })]);
-    expect(out).toBe("word,definition,correctCount,wrongCount\na,b,2,1");
+    expect(out).toBe(
+      PREAMBLE + "word,definition,correctCount,wrongCount\r\na,b,2,1",
+    );
+  });
+
+  test("starts with UTF-8 BOM so Excel decodes UTF-8 correctly", () => {
+    expect(toCSV([]).charCodeAt(0)).toBe(0xfeff);
   });
 
   test("quotes cells with comma, quote, or newline; escapes quotes by doubling", () => {
@@ -33,13 +51,27 @@ describe("toCSV", () => {
       card({ word: 'he said "hi"', definition: "a, b\nc" }),
     ]);
     expect(out).toBe(
-      'word,definition,correctCount,wrongCount\n' +
+      PREAMBLE +
+        "word,definition,correctCount,wrongCount\r\n" +
         '"he said ""hi""","a, b\nc",2,1',
     );
   });
 
-  test("empty list yields just the header", () => {
-    expect(toCSV([])).toBe("word,definition,correctCount,wrongCount");
+  test("empty list yields just preamble + header", () => {
+    expect(toCSV([])).toBe(
+      PREAMBLE + "word,definition,correctCount,wrongCount",
+    );
+  });
+
+  test("output round-trips back through parseFile", () => {
+    const cards = [
+      card({ word: "a", definition: "b" }),
+      card({ id: "id-2", word: 'he said "hi"', definition: "x, y\nz" }),
+    ];
+    const parsed = parseFile("out.csv", toCSV(cards));
+    expect(parsed).toHaveLength(2);
+    expect(parsed[1].word).toBe('he said "hi"');
+    expect(parsed[1].definition).toBe("x, y\nz");
   });
 });
 
@@ -104,6 +136,23 @@ describe("parseFile CSV", () => {
     const csv = "word,definition\r\na,1\r\nb,2";
     expect(parseFile("x.csv", csv)).toHaveLength(2);
   });
+
+  test("strips a leading UTF-8 BOM before the header", () => {
+    const csv = "﻿word,definition\r\na,1";
+    const [c] = parseFile("x.csv", csv);
+    expect(c.word).toBe("a");
+  });
+
+  test("skips an Excel `sep=,` directive line", () => {
+    const csv = "sep=,\r\nword,definition\r\na,1";
+    const [c] = parseFile("x.csv", csv);
+    expect(c.word).toBe("a");
+  });
+
+  test("strips BOM and sep= directive together (full Excel output shape)", () => {
+    const csv = "﻿sep=,\r\nword,definition\r\na,1\r\nb,2";
+    expect(parseFile("x.csv", csv)).toHaveLength(2);
+  });
 });
 
 describe("parseFile unknown extension", () => {
@@ -113,6 +162,12 @@ describe("parseFile unknown extension", () => {
 
     const csv = "word,definition\na,1";
     expect(parseFile("file.txt", csv)).toHaveLength(1);
+  });
+});
+
+describe("parseFile error cases", () => {
+  test(".json extension with malformed text throws", () => {
+    expect(() => parseFile("x.json", "{not json")).toThrow();
   });
 });
 
@@ -135,5 +190,41 @@ describe("download", () => {
     createObj.mockRestore();
     revokeObj.mockRestore();
     click.mockRestore();
+  });
+
+  test("passes filename and MIME through to the anchor and blob", () => {
+    let capturedBlob: Blob | undefined;
+    const createObj = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation((b: Blob | MediaSource) => {
+        capturedBlob = b as Blob;
+        return "blob:test";
+      });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    let capturedAnchor: HTMLAnchorElement | undefined;
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        capturedAnchor = this;
+      });
+
+    download("flashcards.csv", "a,b", "text/csv;charset=utf-8");
+
+    expect(capturedAnchor?.download).toBe("flashcards.csv");
+    expect(capturedAnchor?.href).toBe("blob:test");
+    expect(capturedBlob?.type).toBe("text/csv;charset=utf-8");
+
+    createObj.mockRestore();
+    click.mockRestore();
+  });
+
+  test("removes the anchor from the DOM after clicking", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    const before = document.body.querySelectorAll("a").length;
+    download("x.json", "{}", "application/json");
+    expect(document.body.querySelectorAll("a").length).toBe(before);
   });
 });

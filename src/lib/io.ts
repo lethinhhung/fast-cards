@@ -5,12 +5,16 @@ export function toJSON(cards: Flashcard[]): string {
   return JSON.stringify(cards, null, 2);
 }
 
+// UTF-8 BOM + an Excel `sep=,` directive so Excel respects the comma
+// separator regardless of the user's regional list-separator setting.
+const CSV_PREAMBLE = "﻿sep=,\r\n";
+
 export function toCSV(cards: Flashcard[]): string {
   const header = "word,definition,correctCount,wrongCount";
   const rows = cards.map((c) =>
     [c.word, c.definition, c.correctCount, c.wrongCount].map(csvCell).join(","),
   );
-  return [header, ...rows].join("\n");
+  return CSV_PREAMBLE + [header, ...rows].join("\r\n");
 }
 
 function csvCell(v: string | number): string {
@@ -37,6 +41,9 @@ function parseJSON(text: string): Flashcard[] {
 }
 
 function parseCSV(text: string): Flashcard[] {
+  // Strip a leading UTF-8 BOM and an optional Excel `sep=` directive row.
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  if (/^sep=.\r?\n/i.test(text)) text = text.replace(/^sep=.\r?\n/i, "");
   const rows = splitCSVRows(text);
   if (rows.length === 0) return [];
   const header = rows[0].map((h) => h.trim().toLowerCase());

@@ -49,7 +49,7 @@ export default function CardsPage() {
   const onExportJSON = () =>
     download("flashcards.json", toJSON(cards), "application/json");
   const onExportCSV = () =>
-    download("flashcards.csv", toCSV(cards), "text/csv");
+    download("flashcards.csv", toCSV(cards), "text/csv;charset=utf-8");
 
   const onImport = async (file: File) => {
     const text = await file.text();
