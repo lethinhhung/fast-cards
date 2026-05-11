@@ -2,14 +2,38 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { clearAll, deleteCard, saveCards, useCards } from "@/lib/storage";
 import { download, parseFile, toCSV, toJSON } from "@/lib/io";
+import type { Flashcard } from "@/lib/types";
 
 const EMPTY: never[] = [];
+
+type DeleteTarget = { id: string; word: string };
+type ImportPrompt = { incoming: Flashcard[]; existingCount: number };
 
 export default function CardsPage() {
   const cards = useCards() ?? EMPTY;
   const [query, setQuery] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<DeleteTarget | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [importPrompt, setImportPrompt] = useState<ImportPrompt | null>(null);
+  const [confirmReplace, setConfirmReplace] = useState<Flashcard[] | null>(
+    null,
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
@@ -22,24 +46,10 @@ export default function CardsPage() {
     );
   }, [cards, query]);
 
-  const onDelete = (id: string, word: string) => {
-    if (!confirm(`Delete "${word}"?`)) return;
-    deleteCard(id);
-  };
-
-  const onClearAll = () => {
-    if (cards.length === 0) return;
-    if (!confirm(`Delete all ${cards.length} cards? This cannot be undone.`))
-      return;
-    clearAll();
-  };
-
-  const onExportJSON = () => {
+  const onExportJSON = () =>
     download("flashcards.json", toJSON(cards), "application/json");
-  };
-  const onExportCSV = () => {
+  const onExportCSV = () =>
     download("flashcards.csv", toCSV(cards), "text/csv");
-  };
 
   const onImport = async (file: File) => {
     const text = await file.text();
@@ -48,51 +58,33 @@ export default function CardsPage() {
       alert("No valid cards found in file.");
       return;
     }
-    const mode = confirm(
-      `Import ${incoming.length} cards.\n\nOK = merge with existing\nCancel = replace all`,
-    )
-      ? "merge"
-      : "replace";
-    if (mode === "replace") {
-      if (
-        !confirm(
-          `This will REPLACE all ${cards.length} existing cards. Continue?`,
-        )
-      )
-        return;
-      saveCards(incoming);
-    } else {
-      saveCards([...incoming, ...cards]);
-    }
+    setImportPrompt({ incoming, existingCount: cards.length });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h1 className="text-xl font-semibold">Cards</h1>
-        <span className="text-sm opacity-60">({cards.length})</span>
-        <Link
-          href="/add"
-          className="ml-auto rounded bg-foreground text-background px-3 py-1.5 text-sm"
-        >
-          + Add
-        </Link>
+        <Badge variant="secondary">{cards.length}</Badge>
+        <Button asChild size="sm" className="ml-auto">
+          <Link href="/add">+ Add</Link>
+        </Button>
       </div>
 
-      <input
+      <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search…"
-        className="w-full rounded border border-black/15 dark:border-white/20 px-3 py-2 bg-transparent outline-none focus:border-foreground text-sm"
       />
 
-      <div className="flex flex-wrap gap-2 text-xs">
-        <button
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => fileRef.current?.click()}
-          className="rounded border border-black/15 dark:border-white/20 px-3 py-1.5"
         >
           Import
-        </button>
+        </Button>
         <input
           ref={fileRef}
           type="file"
@@ -104,67 +96,186 @@ export default function CardsPage() {
             e.target.value = "";
           }}
         />
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onExportJSON}
           disabled={cards.length === 0}
-          className="rounded border border-black/15 dark:border-white/20 px-3 py-1.5 disabled:opacity-40"
         >
           Export JSON
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onExportCSV}
           disabled={cards.length === 0}
-          className="rounded border border-black/15 dark:border-white/20 px-3 py-1.5 disabled:opacity-40"
         >
           Export CSV
-        </button>
-        <button
-          onClick={onClearAll}
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setClearOpen(true)}
           disabled={cards.length === 0}
-          className="rounded border border-red-500/40 text-red-600 dark:text-red-400 px-3 py-1.5 disabled:opacity-40 ml-auto"
+          className="ml-auto"
         >
           Clear all
-        </button>
+        </Button>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 opacity-60 text-sm">
+        <div className="text-center py-12 text-sm text-muted-foreground">
           {cards.length === 0 ? "No cards yet." : "No matches."}
         </div>
       ) : (
-        <ul className="divide-y divide-black/10 dark:divide-white/10 border-y border-black/10 dark:border-white/10">
+        <ul className="rounded-md border divide-y">
           {filtered.map((c) => (
-            <li key={c.id} className="py-3 flex items-start gap-3">
+            <li key={c.id} className="p-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{c.word}</div>
-                <div className="text-sm opacity-70 truncate">
+                <div className="text-sm text-muted-foreground truncate">
                   {c.definition}
                 </div>
-                <div className="text-xs opacity-50 mt-0.5">
-                  ✓ {c.correctCount} · ✗ {c.wrongCount}
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                  <span>✓ {c.correctCount}</span>
+                  <span>✗ {c.wrongCount}</span>
                   {c.lastReviewedAt && (
-                    <> · {formatRelative(c.lastReviewedAt)}</>
+                    <>
+                      <Separator orientation="vertical" className="h-3" />
+                      <span>{formatRelative(c.lastReviewedAt)}</span>
+                    </>
                   )}
                 </div>
               </div>
-              <div className="flex gap-1 text-xs shrink-0">
-                <Link
-                  href={`/cards/${c.id}`}
-                  className="rounded border border-black/15 dark:border-white/20 px-2 py-1"
-                >
-                  Edit
-                </Link>
-                <button
-                  onClick={() => onDelete(c.id, c.word)}
-                  className="rounded border border-red-500/40 text-red-600 dark:text-red-400 px-2 py-1"
+              <div className="flex gap-1 shrink-0">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/cards/${c.id}`}>Edit</Link>
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setPendingDelete({ id: c.id, word: c.word })}
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{pendingDelete?.word}&rdquo; will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDelete) deleteCard(pendingDelete.id);
+                setPendingDelete(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all cards?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All {cards.length} cards will be permanently removed. This cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                clearAll();
+                setClearOpen(false);
+              }}
+            >
+              Delete all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={importPrompt !== null}
+        onOpenChange={(o) => !o && setImportPrompt(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Import {importPrompt?.incoming.length} cards
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Merge with your existing {importPrompt?.existingCount} cards, or
+              replace them entirely?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (importPrompt) setConfirmReplace(importPrompt.incoming);
+                setImportPrompt(null);
+              }}
+            >
+              Replace
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (importPrompt) {
+                  saveCards([...importPrompt.incoming, ...cards]);
+                }
+                setImportPrompt(null);
+              }}
+            >
+              Merge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmReplace !== null}
+        onOpenChange={(o) => !o && setConfirmReplace(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace all cards?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your existing {cards.length} cards will be deleted and replaced
+              with {confirmReplace?.length} imported cards.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmReplace) saveCards(confirmReplace);
+                setConfirmReplace(null);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

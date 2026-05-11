@@ -2,7 +2,7 @@
 
 ## Stack
 
-Next.js, TypeScript, Tailwind, localStorage, Vercel.
+Next.js, TypeScript, Tailwind, shadcn/ui (Radix primitives), localStorage, Vercel.
 
 ## Pages
 

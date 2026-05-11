@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { addCard } from "@/lib/storage";
 
 export default function AddPage() {
@@ -10,8 +14,10 @@ export default function AddPage() {
   const [definition, setDefinition] = useState("");
   const [savedCount, setSavedCount] = useState(0);
 
+  const valid = word.trim() && definition.trim();
+
   const save = (then: "more" | "list") => {
-    if (!word.trim() || !definition.trim()) return;
+    if (!valid) return;
     addCard({ word, definition });
     if (then === "more") {
       setWord("");
@@ -33,63 +39,47 @@ export default function AddPage() {
         }}
         className="space-y-4"
       >
-        <Field label="Word">
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="word">Word</Label>
+          <Input
+            id="word"
             autoFocus
             value={word}
             onChange={(e) => setWord(e.target.value)}
-            className="w-full rounded border border-black/15 dark:border-white/20 px-3 py-2 bg-transparent outline-none focus:border-foreground"
           />
-        </Field>
+        </div>
 
-        <Field label="Definition">
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="definition">Definition</Label>
+          <Textarea
+            id="definition"
             value={definition}
             onChange={(e) => setDefinition(e.target.value)}
             rows={3}
-            className="w-full rounded border border-black/15 dark:border-white/20 px-3 py-2 bg-transparent outline-none focus:border-foreground resize-none"
           />
-        </Field>
+        </div>
 
         <div className="flex gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => save("more")}
-            disabled={!word.trim() || !definition.trim()}
-            className="flex-1 rounded border border-black/15 dark:border-white/20 px-4 py-2 text-sm disabled:opacity-40"
+            disabled={!valid}
+            className="flex-1"
           >
             Save & add another
-          </button>
-          <button
-            type="submit"
-            disabled={!word.trim() || !definition.trim()}
-            className="flex-1 rounded bg-foreground text-background px-4 py-2 text-sm disabled:opacity-40"
-          >
+          </Button>
+          <Button type="submit" disabled={!valid} className="flex-1">
             Save
-          </button>
+          </Button>
         </div>
 
         {savedCount > 0 && (
-          <p className="text-xs opacity-70">
+          <p className="text-xs text-muted-foreground">
             Saved {savedCount} card{savedCount === 1 ? "" : "s"} this session.
           </p>
         )}
       </form>
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs uppercase tracking-wide opacity-60">{label}</span>
-      {children}
-    </label>
   );
 }

@@ -2,6 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { deleteCard, updateCard, useCards } from "@/lib/storage";
 import type { Flashcard } from "@/lib/types";
 
@@ -23,12 +37,7 @@ function NotFound() {
   return (
     <div className="text-center space-y-3 mt-12">
       <h1 className="text-xl font-semibold">Card not found</h1>
-      <button
-        onClick={() => router.push("/cards")}
-        className="rounded bg-foreground text-background px-4 py-2 text-sm"
-      >
-        Back to cards
-      </button>
+      <Button onClick={() => router.push("/cards")}>Back to cards</Button>
     </div>
   );
 }
@@ -37,17 +46,14 @@ function EditForm({ card }: { card: Flashcard }) {
   const router = useRouter();
   const [word, setWord] = useState(card.word);
   const [definition, setDefinition] = useState(card.definition);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const valid = word.trim() && definition.trim();
 
   const onSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!word.trim() || !definition.trim()) return;
+    if (!valid) return;
     updateCard(card.id, { word: word.trim(), definition: definition.trim() });
-    router.push("/cards");
-  };
-
-  const onDelete = () => {
-    if (!confirm(`Delete "${card.word}"?`)) return;
-    deleteCard(card.id);
     router.push("/cards");
   };
 
@@ -56,54 +62,69 @@ function EditForm({ card }: { card: Flashcard }) {
       <h1 className="text-xl font-semibold">Edit card</h1>
 
       <form onSubmit={onSave} className="space-y-4">
-        <label className="block space-y-1">
-          <span className="text-xs uppercase tracking-wide opacity-60">
-            Word
-          </span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="word">Word</Label>
+          <Input
+            id="word"
             autoFocus
             value={word}
             onChange={(e) => setWord(e.target.value)}
-            className="w-full rounded border border-black/15 dark:border-white/20 px-3 py-2 bg-transparent outline-none focus:border-foreground"
           />
-        </label>
+        </div>
 
-        <label className="block space-y-1">
-          <span className="text-xs uppercase tracking-wide opacity-60">
-            Definition
-          </span>
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="definition">Definition</Label>
+          <Textarea
+            id="definition"
             value={definition}
             onChange={(e) => setDefinition(e.target.value)}
             rows={3}
-            className="w-full rounded border border-black/15 dark:border-white/20 px-3 py-2 bg-transparent outline-none focus:border-foreground resize-none"
           />
-        </label>
+        </div>
 
         <div className="flex gap-2">
-          <button
+          <Button
             type="button"
-            onClick={onDelete}
-            className="rounded border border-red-500/40 text-red-600 dark:text-red-400 px-4 py-2 text-sm"
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
           >
             Delete
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => router.push("/cards")}
-            className="ml-auto rounded border border-black/15 dark:border-white/20 px-4 py-2 text-sm"
+            className="ml-auto"
           >
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={!word.trim() || !definition.trim()}
-            className="rounded bg-foreground text-background px-4 py-2 text-sm disabled:opacity-40"
-          >
+          </Button>
+          <Button type="submit" disabled={!valid}>
             Save
-          </button>
+          </Button>
         </div>
       </form>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{card.word}&rdquo; will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                deleteCard(card.id);
+                router.push("/cards");
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
