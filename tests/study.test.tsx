@@ -230,12 +230,35 @@ describe("StudyPage", () => {
     await user.click(screen.getByRole("button", { name: /check/i }));
 
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("readonly");
+    expect(input).not.toBeDisabled();
 
     // Pressing Next moves us out of wrong state.
     await user.click(screen.getByRole("button", { name: /next/i }));
     expect(input).toHaveAttribute("aria-invalid", "false");
+    expect(input).not.toHaveAttribute("readonly");
     expect(input).not.toBeDisabled();
+  });
+
+  test("Enter on wrong state advances to next card without leaving the keyboard", async () => {
+    seed([
+      ["one", "the number 1"],
+      ["two", "the number 2"],
+    ]);
+    const user = userEvent.setup();
+    render(<StudyPage />);
+
+    const input = screen.getByPlaceholderText(/type the word/i);
+    await user.type(input, "nope");
+    await user.keyboard("{Enter}");
+    expect(screen.getByText(/incorrect/i)).toBeInTheDocument();
+    expect(input).toHaveFocus();
+
+    // Second Enter should advance to the next card (clears wrong state).
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText(/incorrect/i)).not.toBeInTheDocument();
+    expect(input).toHaveValue("");
+    expect(input).toHaveFocus();
   });
 
   test("full flow: wrong -> Next -> correct on requeued cards finishes the session", async () => {

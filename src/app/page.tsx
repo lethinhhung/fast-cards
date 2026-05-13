@@ -62,28 +62,8 @@ function Session({
   const finished = queue.length === 0;
 
   useEffect(() => {
-    if (status === "idle" && !finished) inputRef.current?.focus();
+    if (!finished) inputRef.current?.focus();
   }, [status, current?.id, finished]);
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!current) return;
-    const value = input.trim();
-    if (!value) return;
-    const correct = value.toLowerCase() === current.word.trim().toLowerCase();
-    if (correct) {
-      updateCard(current.id, {
-        correctCount: current.correctCount + 1,
-        lastReviewedAt: Date.now(),
-      });
-      setQueue((q) => q.slice(1));
-      setDone((d) => d + 1);
-      setInput("");
-      setStatus("idle");
-    } else {
-      setStatus("wrong");
-    }
-  };
 
   const onNext = () => {
     if (!current) return;
@@ -100,6 +80,30 @@ function Session({
     });
     setInput("");
     setStatus("idle");
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!current) return;
+    if (status === "wrong") {
+      onNext();
+      return;
+    }
+    const value = input.trim();
+    if (!value) return;
+    const correct = value.toLowerCase() === current.word.trim().toLowerCase();
+    if (correct) {
+      updateCard(current.id, {
+        correctCount: current.correctCount + 1,
+        lastReviewedAt: Date.now(),
+      });
+      setQueue((q) => q.slice(1));
+      setDone((d) => d + 1);
+      setInput("");
+      setStatus("idle");
+    } else {
+      setStatus("wrong");
+    }
   };
 
   if (finished) {
@@ -166,7 +170,7 @@ function Session({
             if (wrong) setStatus("idle");
           }}
           placeholder="Type the word"
-          disabled={wrong}
+          readOnly={wrong}
           aria-invalid={wrong}
           className="h-14 text-lg px-4 md:text-lg"
         />
