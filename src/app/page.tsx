@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,12 +30,12 @@ export default function StudyPage() {
 
 function EmptyState() {
   return (
-    <div className="text-center space-y-3 mt-12">
-      <h1 className="text-xl font-semibold">No cards yet</h1>
-      <p className="text-sm text-muted-foreground">
+    <div className="text-center space-y-4 mt-16">
+      <h1 className="text-3xl font-semibold">No cards yet</h1>
+      <p className="text-base text-muted-foreground">
         Add some to start studying.
       </p>
-      <Button asChild>
+      <Button asChild className="h-11 px-5 text-base">
         <Link href="/add">Add a card</Link>
       </Button>
     </div>
@@ -56,15 +56,21 @@ function Session({
   const [done, setDone] = useState(0);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const current = queue[0];
   const finished = queue.length === 0;
 
+  useEffect(() => {
+    if (status === "idle" && !finished) inputRef.current?.focus();
+  }, [status, current?.id, finished]);
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!current) return;
-    const correct =
-      input.trim().toLowerCase() === current.word.trim().toLowerCase();
+    const value = input.trim();
+    if (!value) return;
+    const correct = value.toLowerCase() === current.word.trim().toLowerCase();
     if (correct) {
       updateCard(current.id, {
         correctCount: current.correctCount + 1,
@@ -98,62 +104,82 @@ function Session({
 
   if (finished) {
     return (
-      <div className="text-center space-y-3 mt-12">
-        <h1 className="text-xl font-semibold">Session complete</h1>
-        <p className="text-sm text-muted-foreground">
+      <div className="text-center space-y-4 mt-16">
+        <h1 className="text-3xl font-semibold">Session complete</h1>
+        <p className="text-base text-muted-foreground">
           {done} {done === 1 ? "card" : "cards"} reviewed.
         </p>
-        <Button onClick={onRestart}>Study again</Button>
+        <Button onClick={onRestart} className="h-11 px-5 text-base">
+          Study again
+        </Button>
       </div>
     );
   }
 
   const pct = total === 0 ? 0 : (done / total) * 100;
+  const wrong = status === "wrong";
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-xs text-muted-foreground">
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm text-muted-foreground">
           <span>
             {done} / {total} reviewed
           </span>
           <span>{queue.length} in queue</span>
         </div>
-        <Progress value={pct} />
+        <Progress value={pct} className="h-2.5" />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardDescription>Definition</CardDescription>
-          <CardTitle className="text-lg font-normal">
+      <Card className="py-10">
+        <CardHeader className="space-y-3">
+          <CardDescription className="text-sm uppercase tracking-wider">
+            Definition
+          </CardDescription>
+          <CardTitle className="text-2xl sm:text-3xl font-normal leading-snug">
             {current?.definition}
           </CardTitle>
         </CardHeader>
       </Card>
 
-      <form onSubmit={onSubmit} className="space-y-3">
+      {wrong && (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-5 py-4 text-destructive"
+        >
+          <div className="text-sm font-medium uppercase tracking-wider">
+            Incorrect
+          </div>
+          <div className="mt-1 text-base">
+            <span className="opacity-80">Answer: </span>
+            <span className="text-lg font-semibold">{current?.word}</span>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="space-y-4">
         <Input
-          autoFocus
+          ref={inputRef}
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
-            if (status === "wrong") setStatus("idle");
+            if (wrong) setStatus("idle");
           }}
           placeholder="Type the word"
-          disabled={status === "wrong"}
+          disabled={wrong}
+          aria-invalid={wrong}
+          className="h-14 text-lg px-4 md:text-lg"
         />
-        {status === "wrong" ? (
-          <div className="space-y-2">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Answer: </span>
-              <span className="font-semibold">{current?.word}</span>
-            </div>
-            <Button type="button" onClick={onNext} className="w-full">
-              Next
-            </Button>
-          </div>
+        {wrong ? (
+          <Button
+            type="button"
+            onClick={onNext}
+            className="w-full h-12 text-base"
+          >
+            Next
+          </Button>
         ) : (
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full h-12 text-base">
             Check
           </Button>
         )}

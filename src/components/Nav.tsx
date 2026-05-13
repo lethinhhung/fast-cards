@@ -10,13 +10,18 @@ const links = [
 export function Nav() {
   return (
     <nav className="border-b">
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-4">
-        <Link href="/" className="font-semibold text-sm">
+      <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-4">
+        <Link href="/" className="font-semibold text-base">
           fast-cards
         </Link>
         <div className="flex gap-1 ml-auto">
           {links.map((l) => (
-            <Button key={l.href} asChild variant="ghost" size="sm">
+            <Button
+              key={l.href}
+              asChild
+              variant="ghost"
+              className="h-10 px-4 text-base"
+            >
               <Link href={l.href}>{l.label}</Link>
             </Button>
           ))}
