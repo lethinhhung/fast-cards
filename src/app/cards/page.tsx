@@ -133,7 +133,7 @@ export default function CardsPage() {
             <li key={c.id} className="p-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{c.word}</div>
-                <div className="text-sm text-muted-foreground truncate">
+                <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
                   {c.definition}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">

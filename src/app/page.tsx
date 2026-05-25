@@ -140,7 +140,7 @@ function Session({
           <CardDescription className="text-sm uppercase tracking-wider">
             Definition
           </CardDescription>
-          <CardTitle className="text-2xl sm:text-3xl font-normal leading-snug">
+          <CardTitle className="text-2xl sm:text-3xl font-normal leading-snug whitespace-pre-wrap">
             {current?.definition}
           </CardTitle>
         </CardHeader>

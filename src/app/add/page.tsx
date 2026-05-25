@@ -6,15 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addCard } from "@/lib/storage";
+import { addCard, useCards } from "@/lib/storage";
 
 export default function AddPage() {
   const router = useRouter();
   const [word, setWord] = useState("");
   const [definition, setDefinition] = useState("");
   const [savedCount, setSavedCount] = useState(0);
+  const cards = useCards();
 
   const valid = word.trim() && definition.trim();
+  const duplicate = cards?.find(
+    (c) => c.word.toLowerCase() === word.trim().toLowerCase(),
+  );
 
   const save = (then: "more" | "list") => {
     if (!valid) return;
@@ -48,6 +52,12 @@ export default function AddPage() {
             onChange={(e) => setWord(e.target.value)}
           />
         </div>
+
+        {duplicate && (
+          <p className="text-sm text-amber-600 dark:text-amber-500">
+            A card for &ldquo;{duplicate.word}&rdquo; already exists.
+          </p>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>

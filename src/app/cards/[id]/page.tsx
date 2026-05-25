@@ -47,8 +47,13 @@ function EditForm({ card }: { card: Flashcard }) {
   const [word, setWord] = useState(card.word);
   const [definition, setDefinition] = useState(card.definition);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const cards = useCards();
 
   const valid = word.trim() && definition.trim();
+  const duplicate = cards?.find(
+    (c) =>
+      c.id !== card.id && c.word.toLowerCase() === word.trim().toLowerCase(),
+  );
 
   const onSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +76,12 @@ function EditForm({ card }: { card: Flashcard }) {
             onChange={(e) => setWord(e.target.value)}
           />
         </div>
+
+        {duplicate && (
+          <p className="text-sm text-amber-600 dark:text-amber-500">
+            A card for &ldquo;{duplicate.word}&rdquo; already exists.
+          </p>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>
