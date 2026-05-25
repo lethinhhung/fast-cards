@@ -33,6 +33,17 @@ export default function RootLayout({
         <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
           {children}
         </main>
+        <footer className="py-6 text-center text-sm text-muted-foreground">
+          Made by{" "}
+          <a
+            href="https://thinghunggg.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-4 hover:text-foreground transition-colors"
+          >
+            thinghunggg
+          </a>
+        </footer>
       </body>
     </html>
   );
