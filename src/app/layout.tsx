@@ -13,9 +13,43 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BASE_URL = "https://fast-cards.vercel.app";
+
 export const metadata: Metadata = {
-  title: "fast-cards",
-  description: "Simple flashcard study app",
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: "Fast Cards — Flashcard Study App",
+    template: "%s | Fast Cards",
+  },
+  description:
+    "Create, manage, and study flashcards in your browser. Free, private, and no sign-up required.",
+  keywords: [
+    "flashcards",
+    "study",
+    "learning",
+    "vocabulary",
+    "spaced repetition",
+    "memorization",
+  ],
+  openGraph: {
+    title: "Fast Cards — Flashcard Study App",
+    description:
+      "Create, manage, and study flashcards in your browser. Free, private, and no sign-up required.",
+    url: BASE_URL,
+    siteName: "Fast Cards",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Fast Cards — Flashcard Study App",
+    description:
+      "Create, manage, and study flashcards in your browser. Free, private, and no sign-up required.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
