@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const BASE_URL = "https://fast-cards.vercel.app";
+const BASE_URL = "https://fast-cards-study.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

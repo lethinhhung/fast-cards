@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://fast-cards.vercel.app/sitemap.xml",
+    sitemap: "https://fast-cards-study.vercel.app/sitemap.xml",
   };
 }
