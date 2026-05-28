@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { MotionPage } from "@/components/MotionPage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,13 +119,27 @@ export default function CardsPage() {
   };
 
   return (
+    <MotionPage>
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h1 className="text-xl font-semibold">Cards</h1>
-        <Badge variant="secondary">{cards.length}</Badge>
-        <Button asChild size="sm" className="ml-auto">
-          <Link href="/add">+ Add</Link>
-        </Button>
+        <motion.span
+          key={cards.length}
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 480, damping: 22 }}
+        >
+          <Badge variant="secondary">{cards.length}</Badge>
+        </motion.span>
+        <motion.div
+          className="ml-auto"
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+        >
+          <Button asChild size="sm">
+            <Link href="/add">+ Add</Link>
+          </Button>
+        </motion.div>
       </div>
 
       <Input
@@ -188,13 +204,32 @@ export default function CardsPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12 text-sm text-muted-foreground"
+        >
           {cards.length === 0 ? "No cards yet." : "No matches."}
-        </div>
+        </motion.div>
       ) : (
-        <ul className="rounded-md border divide-y">
-          {filtered.map((c) => (
-            <li key={c.id} className="p-3 flex items-start gap-3">
+        <ul className="rounded-md border divide-y overflow-hidden">
+          <AnimatePresence initial={false}>
+          {filtered.map((c, i) => (
+            <motion.li
+              key={c.id}
+              layout
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -40, height: 0, paddingTop: 0, paddingBottom: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 360,
+                damping: 30,
+                delay: Math.min(i * 0.025, 0.2),
+              }}
+              className="p-3 flex items-start gap-3"
+            >
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{c.word}</div>
                 <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
@@ -231,19 +266,24 @@ export default function CardsPage() {
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/cards/${c.id}`}>Edit</Link>
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setPendingDelete({ id: c.id, word: c.word })}
-                >
-                  Delete
-                </Button>
+                <motion.div whileTap={{ scale: 0.94 }}>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/cards/${c.id}`}>Edit</Link>
+                  </Button>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.94 }}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setPendingDelete({ id: c.id, word: c.word })}
+                  >
+                    Delete
+                  </Button>
+                </motion.div>
               </div>
-            </li>
+            </motion.li>
           ))}
+          </AnimatePresence>
         </ul>
       )}
 
@@ -358,6 +398,7 @@ export default function CardsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </MotionPage>
   );
 }
 

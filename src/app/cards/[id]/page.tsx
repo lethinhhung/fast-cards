@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { MotionPage } from "@/components/MotionPage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,10 +38,17 @@ export default function EditCardPage({
 function NotFound() {
   const router = useRouter();
   return (
-    <div className="text-center space-y-3 mt-12">
+    <motion.div
+      className="text-center space-y-3 mt-12"
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 240, damping: 22 }}
+    >
       <h1 className="text-xl font-semibold">Card not found</h1>
-      <Button onClick={() => router.push("/cards")}>Back to cards</Button>
-    </div>
+      <motion.div whileTap={{ scale: 0.96 }} className="inline-block">
+        <Button onClick={() => router.push("/cards")}>Back to cards</Button>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -69,6 +78,7 @@ function EditForm({ card }: { card: Flashcard }) {
   };
 
   return (
+    <MotionPage>
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Edit card</h1>
 
@@ -83,11 +93,19 @@ function EditForm({ card }: { card: Flashcard }) {
           />
         </div>
 
-        {duplicate && (
-          <p className="text-sm text-amber-600 dark:text-amber-500">
-            A card for &ldquo;{duplicate.word}&rdquo; already exists.
-          </p>
-        )}
+        <AnimatePresence>
+          {duplicate && (
+            <motion.p
+              initial={{ opacity: 0, y: -6, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -6, height: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="text-sm text-amber-600 dark:text-amber-500"
+            >
+              A card for &ldquo;{duplicate.word}&rdquo; already exists.
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>
@@ -105,24 +123,29 @@ function EditForm({ card }: { card: Flashcard }) {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            Delete
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/cards")}
-            className="ml-auto"
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={!valid}>
-            Save
-          </Button>
+          <motion.div whileTap={{ scale: 0.96 }}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </motion.div>
+          <motion.div className="ml-auto" whileTap={{ scale: 0.96 }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/cards")}
+            >
+              Cancel
+            </Button>
+          </motion.div>
+          <motion.div whileTap={{ scale: 0.96 }}>
+            <Button type="submit" disabled={!valid}>
+              Save
+            </Button>
+          </motion.div>
         </div>
       </form>
 
@@ -148,5 +171,6 @@ function EditForm({ card }: { card: Flashcard }) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </MotionPage>
   );
 }

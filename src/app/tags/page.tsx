@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { MotionPage } from "@/components/MotionPage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +69,7 @@ export default function TagsPage() {
   };
 
   return (
+    <MotionPage>
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Tags</h1>
 
@@ -82,27 +85,54 @@ export default function TagsPage() {
             }}
             placeholder="e.g. spanish"
           />
-          <Button type="submit" disabled={!name.trim()}>
-            Add
-          </Button>
+          <motion.div whileTap={{ scale: 0.96 }}>
+            <Button type="submit" disabled={!name.trim()}>
+              Add
+            </Button>
+          </motion.div>
         </div>
-        {error && (
-          <p className="text-sm text-amber-600 dark:text-amber-500">{error}</p>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -6, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -6, height: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="text-sm text-amber-600 dark:text-amber-500"
+            >
+              {error}
+            </motion.p>
+          )}
+        </AnimatePresence>
       </form>
 
       {tags.length === 0 ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12 text-sm text-muted-foreground"
+        >
           No tags yet.
-        </div>
+        </motion.div>
       ) : (
-        <ul className="rounded-md border divide-y">
-          {tags.map((t) => {
+        <ul className="rounded-md border divide-y overflow-hidden">
+          <AnimatePresence initial={false}>
+          {tags.map((t, i) => {
             const usage = countCardsWithTag(t.id);
             const isEditing = editingId === t.id;
             return (
-              <li
+              <motion.li
                 key={t.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -40, height: 0, paddingTop: 0, paddingBottom: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 360,
+                  damping: 30,
+                  delay: Math.min(i * 0.03, 0.18),
+                }}
                 className="p-3 flex flex-wrap items-center gap-3"
               >
                 {isEditing ? (
@@ -178,9 +208,10 @@ export default function TagsPage() {
                     </>
                   )}
                 </div>
-              </li>
+              </motion.li>
             );
           })}
+          </AnimatePresence>
         </ul>
       )}
 
@@ -215,5 +246,6 @@ export default function TagsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </MotionPage>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { MotionPage } from "@/components/MotionPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +37,7 @@ export default function AddPage() {
   };
 
   return (
+    <MotionPage>
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Add card</h1>
 
@@ -55,11 +58,19 @@ export default function AddPage() {
           />
         </div>
 
-        {duplicate && (
-          <p className="text-sm text-amber-600 dark:text-amber-500">
-            A card for &ldquo;{duplicate.word}&rdquo; already exists.
-          </p>
-        )}
+        <AnimatePresence>
+          {duplicate && (
+            <motion.p
+              initial={{ opacity: 0, y: -6, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -6, height: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="text-sm text-amber-600 dark:text-amber-500"
+            >
+              A card for &ldquo;{duplicate.word}&rdquo; already exists.
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>
@@ -77,26 +88,39 @@ export default function AddPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => save("more")}
-            disabled={!valid}
-            className="flex-1"
-          >
-            Save & add another
-          </Button>
-          <Button type="submit" disabled={!valid} className="flex-1">
-            Save
-          </Button>
+          <motion.div className="flex-1" whileTap={{ scale: 0.97 }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => save("more")}
+              disabled={!valid}
+              className="w-full"
+            >
+              Save & add another
+            </Button>
+          </motion.div>
+          <motion.div className="flex-1" whileTap={{ scale: 0.97 }}>
+            <Button type="submit" disabled={!valid} className="w-full">
+              Save
+            </Button>
+          </motion.div>
         </div>
 
-        {savedCount > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Saved {savedCount} card{savedCount === 1 ? "" : "s"} this session.
-          </p>
-        )}
+        <AnimatePresence>
+          {savedCount > 0 && (
+            <motion.p
+              key={savedCount}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-xs text-muted-foreground"
+            >
+              Saved {savedCount} card{savedCount === 1 ? "" : "s"} this session.
+            </motion.p>
+          )}
+        </AnimatePresence>
       </form>
     </div>
+    </MotionPage>
   );
 }

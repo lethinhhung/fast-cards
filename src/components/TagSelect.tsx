@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "motion/react";
 import { useTags } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge";
 
@@ -36,26 +37,41 @@ export function TagSelect({ selected, onChange, emptyHint }: Props) {
   };
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <motion.div
+      className="flex flex-wrap gap-1.5"
+      initial="hidden"
+      animate="show"
+      variants={{
+        hidden: {},
+        show: { transition: { staggerChildren: 0.03 } },
+      }}
+    >
       {tags.map((t) => {
         const on = selected.includes(t.id);
         return (
-          <button
+          <motion.button
             key={t.id}
             type="button"
             onClick={() => toggle(t.id)}
             aria-pressed={on}
             className="focus:outline-none"
+            variants={{
+              hidden: { opacity: 0, scale: 0.85 },
+              show: { opacity: 1, scale: 1 },
+            }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 22 }}
           >
             <Badge
               variant={on ? "default" : "outline"}
-              className="cursor-pointer h-7 px-2.5 text-sm"
+              className="cursor-pointer h-7 px-2.5 text-sm transition-colors"
             >
               {t.name}
             </Badge>
-          </button>
+          </motion.button>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
