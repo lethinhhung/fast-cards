@@ -2,10 +2,21 @@ import { describe, expect, test } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import StudyPage from "@/app/page";
-import { addCard, getCard, loadCards } from "@/lib/storage";
+import { addCard, addTag, getCard, loadCards } from "@/lib/storage";
 
 function seed(words: Array<[string, string]>) {
   return words.map(([w, d]) => addCard({ word: w, definition: d }));
+}
+
+async function start(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /^start$/i }));
+}
+
+async function renderSession() {
+  const user = userEvent.setup();
+  render(<StudyPage />);
+  await start(user);
+  return user;
 }
 
 describe("StudyPage", () => {
@@ -18,10 +29,34 @@ describe("StudyPage", () => {
     );
   });
 
-  test("correct answer advances to next card and increments correctCount", async () => {
-    const [a] = seed([["one", "the number 1"]]);
+  test("start screen shows matching card count and Start button", async () => {
+    seed([
+      ["one", "def 1"],
+      ["two", "def 2"],
+    ]);
+    render(<StudyPage />);
+    expect(screen.getByText(/2 cards match/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^start$/i })).toBeEnabled();
+  });
+
+  test("tag filter limits session to matching cards", async () => {
+    const t = addTag("spanish")!;
+    addCard({ word: "uno", definition: "one", tags: [t.id] });
+    addCard({ word: "two", definition: "the number 2" });
     const user = userEvent.setup();
     render(<StudyPage />);
+    // Toggle the 'spanish' filter chip.
+    await user.click(screen.getByRole("button", { name: /spanish/i }));
+    expect(screen.getByText(/1 card match/i)).toBeInTheDocument();
+    await start(user);
+    // Only the spanish card should be in the session.
+    expect(screen.getByText(/0 \/ 1 reviewed/i)).toBeInTheDocument();
+    expect(screen.getByText("one")).toBeInTheDocument();
+  });
+
+  test("correct answer advances to next card and increments correctCount", async () => {
+    const [a] = seed([["one", "the number 1"]]);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "one");
@@ -34,8 +69,7 @@ describe("StudyPage", () => {
 
   test("comparison is case-insensitive and trims input", async () => {
     seed([["Hello", "greeting"]]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     await user.type(screen.getByPlaceholderText(/type the word/i), "  HELLO  ");
     await user.click(screen.getByRole("button", { name: /check/i }));
@@ -47,8 +81,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "wrong");
@@ -73,8 +106,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     for (let i = 0; i < 2; i++) {
       const def = screen.getByText(/the number/i).textContent ?? "";
@@ -97,14 +129,14 @@ describe("StudyPage", () => {
       ["two", "def 2"],
       ["three", "def 3"],
     ]);
-    render(<StudyPage />);
+    await renderSession();
     expect(screen.getByText(/0 \/ 3 reviewed/i)).toBeInTheDocument();
     expect(screen.getByText(/3 in queue/i)).toBeInTheDocument();
   });
 
   test("study session is initialized from a snapshot — adding cards later does not change the session", async () => {
     seed([["one", "def 1"]]);
-    render(<StudyPage />);
+    await renderSession();
     expect(screen.getByText(/0 \/ 1 reviewed/i)).toBeInTheDocument();
 
     await act(async () => {
@@ -121,8 +153,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "nope");
@@ -146,8 +177,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const getCurrentWord = () => {
       const def = screen.getByText(/the number/i).textContent ?? "";
@@ -171,8 +201,7 @@ describe("StudyPage", () => {
 
   test("clicking Check with empty input is a no-op (does not flag wrong)", async () => {
     const [a] = seed([["one", "the number 1"]]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     await user.click(screen.getByRole("button", { name: /check/i }));
 
@@ -189,8 +218,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "nope");
@@ -209,8 +237,7 @@ describe("StudyPage", () => {
 
   test("pressing Enter in the input with empty value is a no-op", async () => {
     seed([["one", "the number 1"]]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     input.focus();
@@ -222,8 +249,7 @@ describe("StudyPage", () => {
 
   test("input shows aria-invalid only while in wrong state, clears on next keystroke", async () => {
     seed([["one", "the number 1"]]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "nope");
@@ -245,8 +271,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const input = screen.getByPlaceholderText(/type the word/i);
     await user.type(input, "nope");
@@ -266,8 +291,7 @@ describe("StudyPage", () => {
       ["one", "the number 1"],
       ["two", "the number 2"],
     ]);
-    const user = userEvent.setup();
-    render(<StudyPage />);
+    const user = await renderSession();
 
     const getCurrentWord = () => {
       const def = screen.getByText(/the number/i).textContent ?? "";

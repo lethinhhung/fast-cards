@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TagSelect } from "@/components/TagSelect";
 import { addCard, useCards } from "@/lib/storage";
 
 export default function AddPage() {
   const router = useRouter();
   const [word, setWord] = useState("");
   const [definition, setDefinition] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [savedCount, setSavedCount] = useState(0);
   const cards = useCards();
 
@@ -22,7 +24,7 @@ export default function AddPage() {
 
   const save = (then: "more" | "list") => {
     if (!valid) return;
-    addCard({ word, definition });
+    addCard({ word, definition, tags });
     if (then === "more") {
       setWord("");
       setDefinition("");
@@ -67,6 +69,11 @@ export default function AddPage() {
             onChange={(e) => setDefinition(e.target.value)}
             rows={3}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Tags</Label>
+          <TagSelect selected={tags} onChange={setTags} />
         </div>
 
         <div className="flex gap-2">

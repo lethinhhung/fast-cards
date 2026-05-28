@@ -7,6 +7,7 @@ function card(overrides: Partial<Flashcard> = {}): Flashcard {
     id: "id-1",
     word: "hello",
     definition: "greeting",
+    tags: [],
     correctCount: 2,
     wrongCount: 1,
     createdAt: 100,
@@ -38,7 +39,7 @@ describe("toCSV", () => {
   test("emits Excel preamble + header + rows with CRLF", () => {
     const out = toCSV([card({ word: "a", definition: "b" })]);
     expect(out).toBe(
-      PREAMBLE + "word,definition,correctCount,wrongCount\r\na,b,2,1",
+      PREAMBLE + "word,definition,tags,correctCount,wrongCount\r\na,b,,2,1",
     );
   });
 
@@ -52,15 +53,26 @@ describe("toCSV", () => {
     ]);
     expect(out).toBe(
       PREAMBLE +
-        "word,definition,correctCount,wrongCount\r\n" +
-        '"he said ""hi""","a, b\nc",2,1',
+        "word,definition,tags,correctCount,wrongCount\r\n" +
+        '"he said ""hi""","a, b\nc",,2,1',
     );
   });
 
   test("empty list yields just preamble + header", () => {
     expect(toCSV([])).toBe(
-      PREAMBLE + "word,definition,correctCount,wrongCount",
+      PREAMBLE + "word,definition,tags,correctCount,wrongCount",
     );
+  });
+
+  test("emits tag names when a lookup is provided", () => {
+    const out = toCSV(
+      [card({ tags: ["t1", "t2"] })],
+      new Map([
+        ["t1", { id: "t1", name: "spanish", createdAt: 0 }],
+        ["t2", { id: "t2", name: "verbs", createdAt: 0 }],
+      ]),
+    );
+    expect(out).toContain("spanish;verbs");
   });
 
   test("output round-trips back through parseFile", () => {

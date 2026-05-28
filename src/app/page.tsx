@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,19 +11,40 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { updateCard, useCards } from "@/lib/storage";
+import { TagSelect } from "@/components/TagSelect";
+import { updateCard, useCards, useTags } from "@/lib/storage";
 import type { Flashcard } from "@/lib/types";
 
 export default function StudyPage() {
   const cards = useCards();
-  const [sessionKey, setSessionKey] = useState(0);
-  if (cards === null) return null;
+  const tags = useTags();
+  const [filter, setFilter] = useState<string[]>([]);
+  const [session, setSession] = useState<{ cards: Flashcard[]; key: number } | null>(
+    null,
+  );
+
+  if (cards === null || tags === null) return null;
   if (cards.length === 0) return <EmptyState />;
+
+  if (session) {
+    return (
+      <Session
+        key={session.key}
+        initial={session.cards}
+        onChangeFilter={() => setSession(null)}
+        onRestart={() =>
+          setSession((s) => (s ? { cards: s.cards, key: s.key + 1 } : s))
+        }
+      />
+    );
+  }
+
   return (
-    <Session
-      key={sessionKey}
-      initial={cards}
-      onRestart={() => setSessionKey((k) => k + 1)}
+    <Start
+      cards={cards}
+      filter={filter}
+      onFilterChange={setFilter}
+      onStart={(filtered) => setSession({ cards: filtered, key: 0 })}
     />
   );
 }
@@ -42,14 +63,63 @@ function EmptyState() {
   );
 }
 
+function Start({
+  cards,
+  filter,
+  onFilterChange,
+  onStart,
+}: {
+  cards: Flashcard[];
+  filter: string[];
+  onFilterChange: (next: string[]) => void;
+  onStart: (cards: Flashcard[]) => void;
+}) {
+  const filtered = useMemo(() => {
+    if (filter.length === 0) return cards;
+    return cards.filter((c) => filter.every((id) => c.tags.includes(id)));
+  }, [cards, filter]);
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold">Study</h1>
+        <p className="text-sm text-muted-foreground">
+          Pick tags to narrow the session, or leave empty to study all cards.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">
+          Filter by tag
+        </div>
+        <TagSelect selected={filter} onChange={onFilterChange} />
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        {filtered.length} {filtered.length === 1 ? "card" : "cards"} match.
+      </div>
+
+      <Button
+        onClick={() => onStart(filtered)}
+        disabled={filtered.length === 0}
+        className="w-full h-12 text-base"
+      >
+        Start
+      </Button>
+    </div>
+  );
+}
+
 type Status = "idle" | "wrong";
 
 function Session({
   initial,
   onRestart,
+  onChangeFilter,
 }: {
   initial: Flashcard[];
   onRestart: () => void;
+  onChangeFilter: () => void;
 }) {
   const [queue, setQueue] = useState<Flashcard[]>(() => shuffle(initial));
   const [total] = useState(initial.length);
@@ -113,9 +183,18 @@ function Session({
         <p className="text-base text-muted-foreground">
           {done} {done === 1 ? "card" : "cards"} reviewed.
         </p>
-        <Button onClick={onRestart} className="h-11 px-5 text-base">
-          Study again
-        </Button>
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="outline"
+            onClick={onChangeFilter}
+            className="h-11 px-5 text-base"
+          >
+            Change filter
+          </Button>
+          <Button onClick={onRestart} className="h-11 px-5 text-base">
+            Study again
+          </Button>
+        </div>
       </div>
     );
   }

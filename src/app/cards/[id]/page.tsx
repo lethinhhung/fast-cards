@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TagSelect } from "@/components/TagSelect";
 import { deleteCard, updateCard, useCards } from "@/lib/storage";
 import type { Flashcard } from "@/lib/types";
 
@@ -46,6 +47,7 @@ function EditForm({ card }: { card: Flashcard }) {
   const router = useRouter();
   const [word, setWord] = useState(card.word);
   const [definition, setDefinition] = useState(card.definition);
+  const [tags, setTags] = useState<string[]>(card.tags);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const cards = useCards();
 
@@ -58,7 +60,11 @@ function EditForm({ card }: { card: Flashcard }) {
   const onSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    updateCard(card.id, { word: word.trim(), definition: definition.trim() });
+    updateCard(card.id, {
+      word: word.trim(),
+      definition: definition.trim(),
+      tags,
+    });
     router.push("/cards");
   };
 
@@ -91,6 +97,11 @@ function EditForm({ card }: { card: Flashcard }) {
             onChange={(e) => setDefinition(e.target.value)}
             rows={3}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Tags</Label>
+          <TagSelect selected={tags} onChange={setTags} />
         </div>
 
         <div className="flex gap-2">

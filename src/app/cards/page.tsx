@@ -16,18 +16,29 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { clearAll, deleteCard, saveCards, useCards } from "@/lib/storage";
+import { TagSelect } from "@/components/TagSelect";
+import {
+  clearAll,
+  deleteCard,
+  ensureTagsByName,
+  saveCards,
+  useCards,
+  useTags,
+} from "@/lib/storage";
 import { download, parseFile, toCSV, toJSON } from "@/lib/io";
-import type { Flashcard } from "@/lib/types";
+import type { Flashcard, Tag } from "@/lib/types";
 
-const EMPTY: never[] = [];
+const EMPTY_CARDS: Flashcard[] = [];
+const EMPTY_TAGS: Tag[] = [];
 
 type DeleteTarget = { id: string; word: string };
 type ImportPrompt = { incoming: Flashcard[]; existingCount: number };
 
 export default function CardsPage() {
-  const cards = useCards() ?? EMPTY;
+  const cards = useCards() ?? EMPTY_CARDS;
+  const tags = useTags() ?? EMPTY_TAGS;
   const [query, setQuery] = useState("");
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [pendingDelete, setPendingDelete] = useState<DeleteTarget | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [importPrompt, setImportPrompt] = useState<ImportPrompt | null>(null);
@@ -36,29 +47,73 @@ export default function CardsPage() {
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const tagsById = useMemo(
+    () => new Map(tags.map((t) => [t.id, t])),
+    [tags],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return cards;
-    return cards.filter(
-      (c) =>
+    return cards.filter((c) => {
+      if (
+        tagFilter.length > 0 &&
+        !tagFilter.every((id) => c.tags.includes(id))
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         c.word.toLowerCase().includes(q) ||
-        c.definition.toLowerCase().includes(q),
-    );
-  }, [cards, query]);
+        c.definition.toLowerCase().includes(q)
+      );
+    });
+  }, [cards, query, tagFilter]);
 
   const onExportJSON = () =>
-    download("flashcards.json", toJSON(cards), "application/json");
+    download(
+      "flashcards.json",
+      toJSON(cards, tagsById),
+      "application/json",
+    );
   const onExportCSV = () =>
-    download("flashcards.csv", toCSV(cards), "text/csv;charset=utf-8");
+    download(
+      "flashcards.csv",
+      toCSV(cards, tagsById),
+      "text/csv;charset=utf-8",
+    );
 
   const onImport = async (file: File) => {
     const text = await file.text();
-    const incoming = parseFile(file.name, text);
+    const incoming = parseFile(file.name, text, (name) =>
+      tempTagId(name),
+    );
     if (incoming.length === 0) {
       alert("No valid cards found in file.");
       return;
     }
     setImportPrompt({ incoming, existingCount: cards.length });
+  };
+
+  const commitImport = (incoming: Flashcard[], mode: "merge" | "replace") => {
+    // Tag IDs in `incoming` are the placeholder `tag:<name>` form produced
+    // by `tempTagId`. Resolve them to real Tag ids, creating tags as needed.
+    const allNames = new Set<string>();
+    for (const c of incoming) {
+      for (const t of c.tags) {
+        if (t.startsWith("tag:")) allNames.add(t.slice(4));
+      }
+    }
+    const ids = ensureTagsByName(Array.from(allNames));
+    const nameToId = new Map<string, string>();
+    Array.from(allNames).forEach((n, i) => nameToId.set(n, ids[i]));
+    const remap = (raw: string) =>
+      raw.startsWith("tag:") ? nameToId.get(raw.slice(4)) ?? "" : raw;
+    const fixed: Flashcard[] = incoming.map((c) => ({
+      ...c,
+      tags: c.tags.map(remap).filter((id): id is string => Boolean(id)),
+    }));
+    if (mode === "merge") saveCards([...fixed, ...cards]);
+    else saveCards(fixed);
   };
 
   return (
@@ -76,6 +131,15 @@ export default function CardsPage() {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search…"
       />
+
+      {tags.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Filter by tag
+          </div>
+          <TagSelect selected={tagFilter} onChange={setTagFilter} />
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button
@@ -136,13 +200,32 @@ export default function CardsPage() {
                 <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
                   {c.definition}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                {c.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {c.tags.map((id) => {
+                      const t = tagsById.get(id);
+                      if (!t) return null;
+                      return (
+                        <Badge
+                          key={id}
+                          variant="secondary"
+                          className="h-5 px-1.5 text-xs"
+                        >
+                          {t.name}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
                   <span>✓ {c.correctCount}</span>
                   <span>✗ {c.wrongCount}</span>
+                  <Separator orientation="vertical" className="h-3" />
+                  <span>Added {formatRelative(c.createdAt)}</span>
                   {c.lastReviewedAt && (
                     <>
                       <Separator orientation="vertical" className="h-3" />
-                      <span>{formatRelative(c.lastReviewedAt)}</span>
+                      <span>Reviewed {formatRelative(c.lastReviewedAt)}</span>
                     </>
                   )}
                 </div>
@@ -239,9 +322,7 @@ export default function CardsPage() {
             </Button>
             <AlertDialogAction
               onClick={() => {
-                if (importPrompt) {
-                  saveCards([...importPrompt.incoming, ...cards]);
-                }
+                if (importPrompt) commitImport(importPrompt.incoming, "merge");
                 setImportPrompt(null);
               }}
             >
@@ -267,7 +348,7 @@ export default function CardsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmReplace) saveCards(confirmReplace);
+                if (confirmReplace) commitImport(confirmReplace, "replace");
                 setConfirmReplace(null);
               }}
             >
@@ -278,6 +359,10 @@ export default function CardsPage() {
       </AlertDialog>
     </div>
   );
+}
+
+function tempTagId(name: string): string {
+  return `tag:${name}`;
 }
 
 function formatRelative(ts: number): string {

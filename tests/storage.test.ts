@@ -1,11 +1,17 @@
 import { describe, expect, test } from "vitest";
 import {
   addCard,
+  addTag,
   clearAll,
+  countCardsWithTag,
   deleteCard,
+  deleteTag,
+  ensureTagsByName,
   getCard,
   loadCards,
+  loadTags,
   normalizeImported,
+  renameTag,
   saveCards,
   updateCard,
 } from "@/lib/storage";
@@ -142,6 +148,7 @@ describe("saveCards", () => {
         id: "x",
         word: "only",
         definition: "one",
+        tags: [],
         correctCount: 0,
         wrongCount: 0,
         createdAt: 0,
@@ -209,5 +216,72 @@ describe("normalizeImported", () => {
     ]);
     expect(c.correctCount).toBe(0);
     expect(c.wrongCount).toBe(0);
+  });
+});
+
+describe("addCard with tags", () => {
+  test("stores provided tag ids and dedupes", () => {
+    const c = addCard({
+      word: "w",
+      definition: "d",
+      tags: ["t1", "t1", "t2"],
+    });
+    expect(c.tags).toEqual(["t1", "t2"]);
+  });
+
+  test("defaults tags to []", () => {
+    const c = addCard({ word: "w", definition: "d" });
+    expect(c.tags).toEqual([]);
+  });
+});
+
+describe("loadCards migration", () => {
+  test("fills missing tags field with []", () => {
+    window.localStorage.setItem(
+      "flashcards",
+      JSON.stringify([{ id: "1", word: "a", definition: "b" }]),
+    );
+    window.dispatchEvent(new StorageEvent("storage", { key: "flashcards" }));
+    expect(loadCards()[0].tags).toEqual([]);
+  });
+});
+
+describe("tag CRUD", () => {
+  test("addTag creates a unique-named tag and rejects duplicates (case-insensitive)", () => {
+    const t1 = addTag("Spanish");
+    expect(t1?.name).toBe("Spanish");
+    expect(addTag("spanish")).toBeNull();
+    expect(addTag("   ")).toBeNull();
+    expect(loadTags()).toHaveLength(1);
+  });
+
+  test("renameTag updates the name; rejects duplicate or empty", () => {
+    const a = addTag("a")!;
+    addTag("b");
+    expect(renameTag(a.id, "alpha")).toBe(true);
+    expect(loadTags().find((t) => t.id === a.id)?.name).toBe("alpha");
+    expect(renameTag(a.id, "B")).toBe(false);
+    expect(renameTag(a.id, "  ")).toBe(false);
+  });
+
+  test("deleteTag removes the tag and strips the id from every card", () => {
+    const t = addTag("verbs")!;
+    addCard({ word: "ser", definition: "to be", tags: [t.id] });
+    addCard({ word: "estar", definition: "to be (temp)", tags: [t.id] });
+    expect(countCardsWithTag(t.id)).toBe(2);
+    deleteTag(t.id);
+    expect(loadTags()).toHaveLength(0);
+    expect(loadCards().every((c) => !c.tags.includes(t.id))).toBe(true);
+  });
+});
+
+describe("ensureTagsByName", () => {
+  test("creates missing tags, dedupes case-insensitively, returns unique ids", () => {
+    const existing = addTag("alpha")!;
+    const ids = ensureTagsByName(["alpha", "beta", "ALPHA"]);
+    // 'alpha' and 'ALPHA' resolve to the same id, so only two unique ids come back.
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe(existing.id);
+    expect(loadTags().map((t) => t.name).sort()).toEqual(["alpha", "beta"]);
   });
 });

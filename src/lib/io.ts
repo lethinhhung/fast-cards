@@ -1,18 +1,42 @@
-import type { Flashcard } from "./types";
+import type { Flashcard, Tag } from "./types";
 import { normalizeImported } from "./storage";
 
-export function toJSON(cards: Flashcard[]): string {
-  return JSON.stringify(cards, null, 2);
+type TagLookup = ReadonlyMap<string, Tag> | Map<string, Tag>;
+
+function tagNamesFor(card: Flashcard, lookup?: TagLookup): string[] {
+  if (!lookup) return [];
+  const names: string[] = [];
+  for (const id of card.tags) {
+    const tag = lookup.get(id);
+    if (tag) names.push(tag.name);
+  }
+  return names;
+}
+
+export function toJSON(cards: Flashcard[], tags?: TagLookup): string {
+  const out = cards.map((c) => ({
+    ...c,
+    tags: tagNamesFor(c, tags),
+  }));
+  return JSON.stringify(out, null, 2);
 }
 
 // UTF-8 BOM + an Excel `sep=,` directive so Excel respects the comma
 // separator regardless of the user's regional list-separator setting.
 const CSV_PREAMBLE = "﻿sep=,\r\n";
 
-export function toCSV(cards: Flashcard[]): string {
-  const header = "word,definition,correctCount,wrongCount";
+export function toCSV(cards: Flashcard[], tags?: TagLookup): string {
+  const header = "word,definition,tags,correctCount,wrongCount";
   const rows = cards.map((c) =>
-    [c.word, c.definition, c.correctCount, c.wrongCount].map(csvCell).join(","),
+    [
+      c.word,
+      c.definition,
+      tagNamesFor(c, tags).join(";"),
+      c.correctCount,
+      c.wrongCount,
+    ]
+      .map(csvCell)
+      .join(","),
   );
   return CSV_PREAMBLE + [header, ...rows].join("\r\n");
 }
@@ -23,24 +47,34 @@ function csvCell(v: string | number): string {
   return s;
 }
 
-export function parseFile(name: string, text: string): Flashcard[] {
+export function parseFile(
+  name: string,
+  text: string,
+  resolveTag?: (name: string) => string,
+): Flashcard[] {
   const ext = name.toLowerCase().split(".").pop();
-  if (ext === "json") return parseJSON(text);
-  if (ext === "csv") return parseCSV(text);
+  if (ext === "json") return parseJSON(text, resolveTag);
+  if (ext === "csv") return parseCSV(text, resolveTag);
   // Try JSON first, fall back to CSV
   try {
-    return parseJSON(text);
+    return parseJSON(text, resolveTag);
   } catch {
-    return parseCSV(text);
+    return parseCSV(text, resolveTag);
   }
 }
 
-function parseJSON(text: string): Flashcard[] {
+function parseJSON(
+  text: string,
+  resolveTag?: (name: string) => string,
+): Flashcard[] {
   const data = JSON.parse(text);
-  return normalizeImported(data);
+  return normalizeImported(data, resolveTag);
 }
 
-function parseCSV(text: string): Flashcard[] {
+function parseCSV(
+  text: string,
+  resolveTag?: (name: string) => string,
+): Flashcard[] {
   // Strip a leading UTF-8 BOM and an optional Excel `sep=` directive row.
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   if (/^sep=.\r?\n/i.test(text)) text = text.replace(/^sep=.\r?\n/i, "");
@@ -52,13 +86,22 @@ function parseCSV(text: string): Flashcard[] {
   if (wi === -1 || di === -1) return [];
   const ci = header.indexOf("correctcount");
   const xi = header.indexOf("wrongcount");
+  const ti = header.indexOf("tags");
   return normalizeImported(
     rows.slice(1).map((r) => ({
       word: r[wi],
       definition: r[di],
+      tags:
+        ti !== -1 && typeof r[ti] === "string"
+          ? r[ti]
+              .split(";")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
       correctCount: ci !== -1 ? Number(r[ci]) : 0,
       wrongCount: xi !== -1 ? Number(r[xi]) : 0,
     })),
+    resolveTag,
   );
 }
 

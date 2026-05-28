@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const links = [
   { href: "/", label: "Study" },
   { href: "/cards", label: "Cards" },
+  { href: "/tags", label: "Tags" },
   { href: "/add", label: "Add" },
 ];
 
@@ -14,7 +16,7 @@ export function Nav() {
         <Link href="/" className="font-semibold text-base">
           fast-cards
         </Link>
-        <div className="flex gap-1 ml-auto">
+        <div className="flex gap-1 ml-auto items-center">
           {links.map((l) => (
             <Button
               key={l.href}
@@ -25,6 +27,7 @@ export function Nav() {
               <Link href={l.href}>{l.label}</Link>
             </Button>
           ))}
+          <ThemeToggle />
         </div>
       </div>
     </nav>
