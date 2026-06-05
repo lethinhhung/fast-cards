@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapse } from "@/components/Collapse";
 import { TagSelect } from "@/components/TagSelect";
 import { deleteCard, updateCard, useCards } from "@/lib/storage";
 import type { Flashcard } from "@/lib/types";
@@ -83,11 +84,11 @@ function EditForm({ card }: { card: Flashcard }) {
           />
         </div>
 
-        {duplicate && (
+        <Collapse show={duplicate !== undefined}>
           <p className="text-sm text-amber-600 dark:text-amber-500">
-            A card for &ldquo;{duplicate.word}&rdquo; already exists.
+            A card for &ldquo;{duplicate?.word}&rdquo; already exists.
           </p>
-        )}
+        </Collapse>
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>

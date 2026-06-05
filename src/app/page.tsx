@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +13,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Collapse } from "@/components/Collapse";
 import { TagSelect } from "@/components/TagSelect";
+import { fadeUp, pop, springGentle, stagger } from "@/lib/animation";
 import { updateCard, useCards, useTags } from "@/lib/storage";
 import { matchesTagFilter } from "@/lib/tagFilter";
 import type { Flashcard } from "@/lib/types";
@@ -52,15 +56,24 @@ export default function StudyPage() {
 
 function EmptyState() {
   return (
-    <div className="text-center space-y-4 mt-16">
-      <h1 className="text-3xl font-semibold">No cards yet</h1>
-      <p className="text-base text-muted-foreground">
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="show"
+      className="text-center space-y-4 mt-16"
+    >
+      <motion.h1 variants={fadeUp} className="text-3xl font-semibold">
+        No cards yet
+      </motion.h1>
+      <motion.p variants={fadeUp} className="text-base text-muted-foreground">
         Add some to start studying.
-      </p>
-      <Button asChild className="h-11 px-5 text-base">
-        <Link href="/add">Add a card</Link>
-      </Button>
-    </div>
+      </motion.p>
+      <motion.div variants={fadeUp}>
+        <Button asChild className="h-11 px-5 text-base">
+          <Link href="/add">Add a card</Link>
+        </Button>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -81,33 +94,53 @@ function Start({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeUp} className="space-y-1">
         <h1 className="text-2xl font-semibold">Study</h1>
         <p className="text-sm text-muted-foreground">
           Pick tags to narrow the session, or leave empty to study all cards.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="space-y-2">
+      <motion.div variants={fadeUp} className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Filter by tag
         </div>
         <TagSelect selected={filter} onChange={onFilterChange} untagged />
-      </div>
+      </motion.div>
 
-      <div className="text-sm text-muted-foreground">
-        {filtered.length} {filtered.length === 1 ? "card" : "cards"} match.
-      </div>
+      <motion.div variants={fadeUp} className="text-sm text-muted-foreground">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={filtered.length}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="inline-block tabular-nums"
+          >
+            {filtered.length} {filtered.length === 1 ? "card" : "cards"} match.
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
 
-      <Button
-        onClick={() => onStart(filtered)}
-        disabled={filtered.length === 0}
-        className="w-full h-12 text-base"
-      >
-        Start
-      </Button>
-    </div>
+      <motion.div variants={fadeUp}>
+        <motion.div whileTap={{ scale: 0.98 }}>
+          <Button
+            onClick={() => onStart(filtered)}
+            disabled={filtered.length === 0}
+            className="w-full h-12 text-base"
+          >
+            Start
+          </Button>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -179,12 +212,25 @@ function Session({
 
   if (finished) {
     return (
-      <div className="text-center space-y-4 mt-16">
-        <h1 className="text-3xl font-semibold">Session complete</h1>
-        <p className="text-base text-muted-foreground">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="text-center space-y-4 mt-16"
+      >
+        <motion.div
+          variants={pop}
+          className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground"
+        >
+          <Check className="size-7" />
+        </motion.div>
+        <motion.h1 variants={fadeUp} className="text-3xl font-semibold">
+          Session complete
+        </motion.h1>
+        <motion.p variants={fadeUp} className="text-base text-muted-foreground">
           {done} {done === 1 ? "card" : "cards"} reviewed.
-        </p>
-        <div className="flex justify-center gap-2">
+        </motion.p>
+        <motion.div variants={fadeUp} className="flex justify-center gap-2">
           <Button
             variant="outline"
             onClick={onChangeFilter}
@@ -195,8 +241,8 @@ function Session({
           <Button onClick={onRestart} className="h-11 px-5 text-base">
             Study again
           </Button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     );
   }
 
@@ -215,18 +261,28 @@ function Session({
         <Progress value={pct} className="h-2.5" />
       </div>
 
-      <Card className="py-10">
-        <CardHeader className="space-y-3">
-          <CardDescription className="text-sm uppercase tracking-wider">
-            Definition
-          </CardDescription>
-          <CardTitle className="text-2xl sm:text-3xl font-normal leading-snug whitespace-pre-wrap">
-            {current?.definition}
-          </CardTitle>
-        </CardHeader>
-      </Card>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={current?.id}
+          initial={{ opacity: 0, x: 48, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -48, scale: 0.98 }}
+          transition={springGentle}
+        >
+          <Card className="py-10">
+            <CardHeader className="space-y-3">
+              <CardDescription className="text-sm uppercase tracking-wider">
+                Definition
+              </CardDescription>
+              <CardTitle className="text-2xl sm:text-3xl font-normal leading-snug whitespace-pre-wrap">
+                {current?.definition}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </motion.div>
+      </AnimatePresence>
 
-      {wrong && (
+      <Collapse show={wrong}>
         <div
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/10 px-5 py-4 text-destructive"
@@ -239,34 +295,47 @@ function Session({
             <span className="text-lg font-semibold">{current?.word}</span>
           </div>
         </div>
-      )}
+      </Collapse>
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <Input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            if (wrong) setStatus("idle");
+        <motion.div
+          animate={wrong ? "shake" : "idle"}
+          variants={{
+            idle: { x: 0 },
+            shake: {
+              x: [0, -10, 10, -8, 8, -4, 4, 0],
+              transition: { duration: 0.4 },
+            },
           }}
-          placeholder="Type the word"
-          readOnly={wrong}
-          aria-invalid={wrong}
-          className="h-14 text-lg px-4 md:text-lg"
-        />
-        {wrong ? (
-          <Button
-            type="button"
-            onClick={onNext}
-            className="w-full h-12 text-base"
-          >
-            Next
-          </Button>
-        ) : (
-          <Button type="submit" className="w-full h-12 text-base">
-            Check
-          </Button>
-        )}
+        >
+          <Input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (wrong) setStatus("idle");
+            }}
+            placeholder="Type the word"
+            readOnly={wrong}
+            aria-invalid={wrong}
+            className="h-14 text-lg px-4 md:text-lg"
+          />
+        </motion.div>
+        <motion.div whileTap={{ scale: 0.98 }}>
+          {wrong ? (
+            <Button
+              type="button"
+              onClick={onNext}
+              className="w-full h-12 text-base"
+            >
+              Next
+            </Button>
+          ) : (
+            <Button type="submit" className="w-full h-12 text-base">
+              Check
+            </Button>
+          )}
+        </motion.div>
       </form>
     </div>
   );

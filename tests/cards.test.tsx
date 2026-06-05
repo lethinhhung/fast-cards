@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("next/navigation", () => ({
@@ -307,12 +307,17 @@ describe("CardsPage bulk tagging", () => {
 
     await user.click(screen.getByRole("button", { name: /^untagged$/i }));
     expect(screen.getByText("beta")).toBeInTheDocument();
-    expect(screen.queryByText("alpha")).not.toBeInTheDocument();
+    // Filtered-out rows animate out, so removal is async.
+    await waitFor(() =>
+      expect(screen.queryByText("alpha")).not.toBeInTheDocument(),
+    );
 
     // Untagged is mutually exclusive with real tags.
     await user.click(screen.getByRole("button", { name: /^verbs$/i }));
     expect(screen.getByText("alpha")).toBeInTheDocument();
-    expect(screen.queryByText("beta")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("beta")).not.toBeInTheDocument(),
+    );
   });
 
   test("bulk-tagging untagged cards drops them from filter and selection", async () => {

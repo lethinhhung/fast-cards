@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapse } from "@/components/Collapse";
 import { TagSelect } from "@/components/TagSelect";
 import { addCard, useCards } from "@/lib/storage";
 
@@ -55,11 +56,11 @@ export default function AddPage() {
           />
         </div>
 
-        {duplicate && (
+        <Collapse show={duplicate !== undefined}>
           <p className="text-sm text-amber-600 dark:text-amber-500">
-            A card for &ldquo;{duplicate.word}&rdquo; already exists.
+            A card for &ldquo;{duplicate?.word}&rdquo; already exists.
           </p>
-        )}
+        </Collapse>
 
         <div className="space-y-1.5">
           <Label htmlFor="definition">Definition</Label>
@@ -91,11 +92,11 @@ export default function AddPage() {
           </Button>
         </div>
 
-        {savedCount > 0 && (
+        <Collapse show={savedCount > 0}>
           <p className="text-xs text-muted-foreground">
             Saved {savedCount} card{savedCount === 1 ? "" : "s"} this session.
           </p>
-        )}
+        </Collapse>
       </form>
     </div>
   );

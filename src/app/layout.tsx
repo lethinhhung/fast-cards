@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { MotionProvider } from "@/components/MotionProvider";
 import { Nav } from "@/components/Nav";
 import { THEME_SCRIPT } from "@/lib/theme";
 
@@ -72,10 +73,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <Nav />
-        <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
-          {children}
-        </main>
+        <MotionProvider>
+          <Nav />
+          <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
+            {children}
+          </main>
+        </MotionProvider>
         <footer className="py-6 text-center text-sm text-muted-foreground">
           Made by{" "}
           <a

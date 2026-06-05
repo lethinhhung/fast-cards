@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { Tag as TagIcon, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ import {
   useTags,
 } from "@/lib/storage";
 import { download, parseFile, toCSV, toJSON } from "@/lib/io";
+import { spring } from "@/lib/animation";
 import { matchesTagFilter } from "@/lib/tagFilter";
 import type { Flashcard, Tag } from "@/lib/types";
 
@@ -297,12 +299,18 @@ export default function CardsPage() {
                 : "Select all"}
             </span>
           </div>
-          <ul className="rounded-md border divide-y">
+          <ul className="rounded-md border divide-y overflow-hidden">
+          <AnimatePresence initial={false} mode="popLayout">
           {filtered.map((c, i) => (
-            <li
+            <motion.li
               key={c.id}
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={spring}
               className={
-                "p-3 flex items-start gap-3" +
+                "p-3 flex items-start gap-3 transition-colors" +
                 (selected.has(c.id) ? " bg-muted/50" : "")
               }
             >
@@ -362,17 +370,23 @@ export default function CardsPage() {
                   Delete
                 </Button>
               </div>
-            </li>
+            </motion.li>
           ))}
+          </AnimatePresence>
           </ul>
         </>
       )}
 
-      {selectedCards.length > 0 && (
-        <>
-          {/* Keep the floating bar from covering the last rows. */}
-          <div className="h-12" aria-hidden />
-          <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur">
+      {/* Keep the floating bar from covering the last rows. */}
+      {selectedCards.length > 0 && <div className="h-12" aria-hidden />}
+      <AnimatePresence>
+        {selectedCards.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.95 }}
+            transition={spring}
+            className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur">
             <span className="px-1 text-sm font-medium tabular-nums whitespace-nowrap">
               {selectedCards.length} selected
             </span>
@@ -403,9 +417,9 @@ export default function CardsPage() {
             >
               <X />
             </Button>
-          </div>
-        </>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>

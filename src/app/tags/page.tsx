@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Collapse } from "@/components/Collapse";
+import { spring } from "@/lib/animation";
 import {
   addTag,
   countCardsWithTag,
@@ -86,9 +89,9 @@ export default function TagsPage() {
             Add
           </Button>
         </div>
-        {error && (
+        <Collapse show={error !== null}>
           <p className="text-sm text-amber-600 dark:text-amber-500">{error}</p>
-        )}
+        </Collapse>
       </form>
 
       {tags.length === 0 ? (
@@ -96,13 +99,19 @@ export default function TagsPage() {
           No tags yet.
         </div>
       ) : (
-        <ul className="rounded-md border divide-y">
+        <ul className="rounded-md border divide-y overflow-hidden">
+          <AnimatePresence initial={false} mode="popLayout">
           {tags.map((t) => {
             const usage = countCardsWithTag(t.id);
             const isEditing = editingId === t.id;
             return (
-              <li
+              <motion.li
                 key={t.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={spring}
                 className="p-3 flex flex-wrap items-center gap-3"
               >
                 {isEditing ? (
@@ -123,11 +132,11 @@ export default function TagsPage() {
                         }
                       }}
                     />
-                    {editError && (
+                    <Collapse show={editError !== null}>
                       <p className="text-sm text-amber-600 dark:text-amber-500">
                         {editError}
                       </p>
-                    )}
+                    </Collapse>
                   </div>
                 ) : (
                   <>
@@ -178,9 +187,10 @@ export default function TagsPage() {
                     </>
                   )}
                 </div>
-              </li>
+              </motion.li>
             );
           })}
+          </AnimatePresence>
         </ul>
       )}
 
