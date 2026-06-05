@@ -213,14 +213,14 @@ describe("download", () => {
         return "blob:test";
       });
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    let capturedAnchor: HTMLAnchorElement | undefined;
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(function (this: HTMLAnchorElement) {
-        capturedAnchor = this;
-      });
+      .mockImplementation(() => {});
 
     download("flashcards.csv", "a,b", "text/csv;charset=utf-8");
+
+    // The clicked anchor is the spy's `this` for the first call.
+    const capturedAnchor = click.mock.contexts[0] as HTMLAnchorElement;
 
     expect(capturedAnchor?.download).toBe("flashcards.csv");
     expect(capturedAnchor?.href).toBe("blob:test");
