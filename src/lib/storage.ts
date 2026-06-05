@@ -186,6 +186,31 @@ export function deleteTag(id: string): void {
   if (changed) saveCards(next);
 }
 
+export function applyTagsToCards(
+  cardIds: string[],
+  addTagIds: string[],
+  removeTagIds: string[],
+): void {
+  if (cardIds.length === 0) return;
+  if (addTagIds.length === 0 && removeTagIds.length === 0) return;
+  const targets = new Set(cardIds);
+  const remove = new Set(removeTagIds);
+  let changed = false;
+  const next = loadCards().map((c) => {
+    if (!targets.has(c.id)) return c;
+    const tags = dedupeTagIds([
+      ...c.tags.filter((t) => !remove.has(t)),
+      ...addTagIds,
+    ]);
+    if (tags.length === c.tags.length && tags.every((t, i) => t === c.tags[i])) {
+      return c;
+    }
+    changed = true;
+    return { ...c, tags };
+  });
+  if (changed) saveCards(next);
+}
+
 export function countCardsWithTag(id: string): number {
   return loadCards().filter((c) => c.tags.includes(id)).length;
 }

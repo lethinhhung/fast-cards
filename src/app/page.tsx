@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { TagSelect } from "@/components/TagSelect";
 import { updateCard, useCards, useTags } from "@/lib/storage";
+import { matchesTagFilter } from "@/lib/tagFilter";
 import type { Flashcard } from "@/lib/types";
 
 export default function StudyPage() {
@@ -74,10 +75,10 @@ function Start({
   onFilterChange: (next: string[]) => void;
   onStart: (cards: Flashcard[]) => void;
 }) {
-  const filtered = useMemo(() => {
-    if (filter.length === 0) return cards;
-    return cards.filter((c) => filter.every((id) => c.tags.includes(id)));
-  }, [cards, filter]);
+  const filtered = useMemo(
+    () => cards.filter((c) => matchesTagFilter(c.tags, filter)),
+    [cards, filter],
+  );
 
   return (
     <div className="space-y-6">
@@ -92,7 +93,7 @@ function Start({
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Filter by tag
         </div>
-        <TagSelect selected={filter} onChange={onFilterChange} />
+        <TagSelect selected={filter} onChange={onFilterChange} untagged />
       </div>
 
       <div className="text-sm text-muted-foreground">

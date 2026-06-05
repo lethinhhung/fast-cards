@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   addCard,
   addTag,
+  applyTagsToCards,
   clearAll,
   countCardsWithTag,
   deleteCard,
@@ -272,6 +273,56 @@ describe("tag CRUD", () => {
     deleteTag(t.id);
     expect(loadTags()).toHaveLength(0);
     expect(loadCards().every((c) => !c.tags.includes(t.id))).toBe(true);
+  });
+});
+
+describe("applyTagsToCards", () => {
+  test("adds tags to every listed card without duplicating existing ones", () => {
+    const verbs = addTag("verbs")!;
+    const basics = addTag("basics")!;
+    const a = addCard({ word: "ser", definition: "to be", tags: [verbs.id] });
+    const b = addCard({ word: "ir", definition: "to go" });
+    const untouched = addCard({ word: "casa", definition: "house" });
+
+    applyTagsToCards([a.id, b.id], [verbs.id, basics.id], []);
+
+    expect(getCard(a.id)!.tags).toEqual([verbs.id, basics.id]);
+    expect(getCard(b.id)!.tags).toEqual([verbs.id, basics.id]);
+    expect(getCard(untouched.id)!.tags).toEqual([]);
+  });
+
+  test("removes tags only from listed cards", () => {
+    const t = addTag("old")!;
+    const a = addCard({ word: "a", definition: "1", tags: [t.id] });
+    const b = addCard({ word: "b", definition: "2", tags: [t.id] });
+
+    applyTagsToCards([a.id], [], [t.id]);
+
+    expect(getCard(a.id)!.tags).toEqual([]);
+    expect(getCard(b.id)!.tags).toEqual([t.id]);
+  });
+
+  test("adds and removes in a single call", () => {
+    const stale = addTag("stale")!;
+    const fresh = addTag("fresh")!;
+    const a = addCard({ word: "a", definition: "1", tags: [stale.id] });
+    const b = addCard({ word: "b", definition: "2" });
+
+    applyTagsToCards([a.id, b.id], [fresh.id], [stale.id]);
+
+    expect(getCard(a.id)!.tags).toEqual([fresh.id]);
+    expect(getCard(b.id)!.tags).toEqual([fresh.id]);
+  });
+
+  test("no-op when nothing actually changes", () => {
+    const t = addTag("verbs")!;
+    const a = addCard({ word: "a", definition: "1", tags: [t.id] });
+    const before = loadCards();
+
+    // Adding a tag every card already has should not rewrite storage.
+    applyTagsToCards([a.id], [t.id], []);
+
+    expect(loadCards()).toBe(before);
   });
 });
 

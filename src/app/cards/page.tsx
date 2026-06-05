@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { Tag as TagIcon, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,10 +15,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { BulkTagMenu } from "@/components/BulkTagMenu";
 import { TagSelect } from "@/components/TagSelect";
 import {
+  applyTagsToCards,
   clearAll,
   deleteCard,
   ensureTagsByName,
@@ -26,6 +35,7 @@ import {
   useTags,
 } from "@/lib/storage";
 import { download, parseFile, toCSV, toJSON } from "@/lib/io";
+import { matchesTagFilter } from "@/lib/tagFilter";
 import type { Flashcard, Tag } from "@/lib/types";
 
 const EMPTY_CARDS: Flashcard[] = [];
@@ -45,7 +55,14 @@ export default function CardsPage() {
   const [confirmReplace, setConfirmReplace] = useState<Flashcard[] | null>(
     null,
   );
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Shift-click range selection: anchor index of the last toggled row, and
+  // whether the in-flight checkbox change came from a shift-click.
+  const lastIndexRef = useRef<number | null>(null);
+  const shiftRef = useRef(false);
 
   const tagsById = useMemo(
     () => new Map(tags.map((t) => [t.id, t])),
@@ -55,12 +72,7 @@ export default function CardsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return cards.filter((c) => {
-      if (
-        tagFilter.length > 0 &&
-        !tagFilter.every((id) => c.tags.includes(id))
-      ) {
-        return false;
-      }
+      if (!matchesTagFilter(c.tags, tagFilter)) return false;
       if (!q) return true;
       return (
         c.word.toLowerCase().includes(q) ||
@@ -68,6 +80,80 @@ export default function CardsPage() {
       );
     });
   }, [cards, query, tagFilter]);
+
+  // Selection only ever refers to visible cards: ids whose cards were
+  // deleted, or which dropped out of the filter (e.g. untagged cards that
+  // just got bulk-tagged), are pruned automatically.
+  const selectedCards = useMemo(
+    () => filtered.filter((c) => selected.has(c.id)),
+    [filtered, selected],
+  );
+  const allSelected =
+    filtered.length > 0 && filtered.every((c) => selected.has(c.id));
+  const someSelected = filtered.some((c) => selected.has(c.id));
+
+  const clearSelection = () => {
+    setSelected(new Set());
+    lastIndexRef.current = null;
+  };
+
+  const toggleSelect = (id: string, index: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const on = !next.has(id);
+      if (shiftRef.current && lastIndexRef.current !== null) {
+        const lo = Math.min(lastIndexRef.current, index);
+        const hi = Math.max(lastIndexRef.current, index);
+        for (let i = lo; i <= hi; i++) {
+          if (on) next.add(filtered[i].id);
+          else next.delete(filtered[i].id);
+        }
+      } else if (on) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+    lastIndexRef.current = index;
+  };
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) filtered.forEach((c) => next.delete(c.id));
+      else filtered.forEach((c) => next.add(c.id));
+      return next;
+    });
+    lastIndexRef.current = null;
+  };
+
+  // Selection follows what's visible; changing search/filter resets it so
+  // bulk actions never touch cards the user can no longer see.
+  const onQueryChange = (v: string) => {
+    setQuery(v);
+    clearSelection();
+  };
+  const onTagFilterChange = (next: string[]) => {
+    setTagFilter(next);
+    clearSelection();
+  };
+
+  const onBulkTag = (add: string[], remove: string[]) => {
+    applyTagsToCards(
+      selectedCards.map((c) => c.id),
+      add,
+      remove,
+    );
+    setTagMenuOpen(false);
+  };
+
+  const onBulkDelete = () => {
+    const ids = new Set(selectedCards.map((c) => c.id));
+    saveCards(cards.filter((c) => !ids.has(c.id)));
+    clearSelection();
+    setBulkDeleteOpen(false);
+  };
 
   const onExportJSON = () =>
     download(
@@ -128,7 +214,7 @@ export default function CardsPage() {
 
       <Input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => onQueryChange(e.target.value)}
         placeholder="Search…"
       />
 
@@ -137,7 +223,11 @@ export default function CardsPage() {
           <div className="text-xs uppercase tracking-wider text-muted-foreground">
             Filter by tag
           </div>
-          <TagSelect selected={tagFilter} onChange={setTagFilter} />
+          <TagSelect
+            selected={tagFilter}
+            onChange={onTagFilterChange}
+            untagged
+          />
         </div>
       )}
 
@@ -192,9 +282,39 @@ export default function CardsPage() {
           {cards.length === 0 ? "No cards yet." : "No matches."}
         </div>
       ) : (
-        <ul className="rounded-md border divide-y">
-          {filtered.map((c) => (
-            <li key={c.id} className="p-3 flex items-start gap-3">
+        <>
+          <div className="flex items-center gap-3 px-3">
+            <Checkbox
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
+              onCheckedChange={toggleSelectAll}
+              aria-label="Select all"
+            />
+            <span className="text-xs text-muted-foreground">
+              {selectedCards.length > 0
+                ? `${selectedCards.length} of ${filtered.length} selected`
+                : "Select all"}
+            </span>
+          </div>
+          <ul className="rounded-md border divide-y">
+          {filtered.map((c, i) => (
+            <li
+              key={c.id}
+              className={
+                "p-3 flex items-start gap-3" +
+                (selected.has(c.id) ? " bg-muted/50" : "")
+              }
+            >
+              <Checkbox
+                checked={selected.has(c.id)}
+                onCheckedChange={() => toggleSelect(c.id, i)}
+                onClick={(e) => {
+                  shiftRef.current = e.shiftKey;
+                }}
+                aria-label={`Select ${c.word}`}
+                className="mt-0.5"
+              />
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{c.word}</div>
                 <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
@@ -244,8 +364,69 @@ export default function CardsPage() {
               </div>
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
+
+      {selectedCards.length > 0 && (
+        <>
+          {/* Keep the floating bar from covering the last rows. */}
+          <div className="h-12" aria-hidden />
+          <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur">
+            <span className="px-1 text-sm font-medium tabular-nums whitespace-nowrap">
+              {selectedCards.length} selected
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <Popover open={tagMenuOpen} onOpenChange={setTagMenuOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <TagIcon data-icon="inline-start" />
+                  Tags
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="center" className="w-72 p-0">
+                <BulkTagMenu cards={selectedCards} onApply={onBulkTag} />
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Clear selection"
+              onClick={clearSelection}
+            >
+              <X />
+            </Button>
+          </div>
+        </>
+      )}
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedCards.length}{" "}
+              {selectedCards.length === 1 ? "card" : "cards"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The selected cards will be permanently removed. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onBulkDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={pendingDelete !== null}

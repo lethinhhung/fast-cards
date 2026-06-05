@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import CardsPage from "@/app/cards/page";
-import { addCard, loadCards } from "@/lib/storage";
+import { addCard, addTag, getCard, loadCards, loadTags } from "@/lib/storage";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -201,5 +201,154 @@ describe("CardsPage", () => {
 
     await user.click(screen.getByRole("button", { name: /export csv/i }));
     expect(click).toHaveBeenCalled();
+  });
+});
+
+describe("CardsPage bulk tagging", () => {
+  test("selecting cards shows the action bar; bulk-apply adds a tag to all", async () => {
+    const verbs = addTag("verbs")!;
+    const a = addCard({ word: "alpha", definition: "1" });
+    const b = addCard({ word: "beta", definition: "2" });
+    const c = addCard({ word: "gamma", definition: "3" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("checkbox", { name: /select alpha/i }));
+    await user.click(screen.getByRole("checkbox", { name: /select beta/i }));
+    expect(screen.getByText(/^2 selected$/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /tags/i }));
+    await user.click(
+      await screen.findByRole("checkbox", { name: /tag verbs/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(getCard(a.id)!.tags).toContain(verbs.id);
+    expect(getCard(b.id)!.tags).toContain(verbs.id);
+    expect(getCard(c.id)!.tags).toHaveLength(0);
+  });
+
+  test("partial tag is indeterminate; toggling to unchecked removes it from all", async () => {
+    const verbs = addTag("verbs")!;
+    const a = addCard({ word: "alpha", definition: "1", tags: [verbs.id] });
+    const b = addCard({ word: "beta", definition: "2" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("checkbox", { name: /select alpha/i }));
+    await user.click(screen.getByRole("checkbox", { name: /select beta/i }));
+    await user.click(screen.getByRole("button", { name: /tags/i }));
+
+    const tagBox = await screen.findByRole("checkbox", { name: /tag verbs/i });
+    expect(tagBox).toHaveAttribute("data-state", "indeterminate");
+
+    // indeterminate -> checked (add to all) -> unchecked (remove from all)
+    await user.click(tagBox);
+    expect(tagBox).toHaveAttribute("data-state", "checked");
+    await user.click(tagBox);
+    expect(tagBox).toHaveAttribute("data-state", "unchecked");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(getCard(a.id)!.tags).toHaveLength(0);
+    expect(getCard(b.id)!.tags).toHaveLength(0);
+  });
+
+  test("creating a new tag from the menu stages it and applies to selection", async () => {
+    const a = addCard({ word: "alpha", definition: "1" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("checkbox", { name: /select alpha/i }));
+    await user.click(screen.getByRole("button", { name: /tags/i }));
+    await user.type(
+      await screen.findByPlaceholderText(/search or create tag/i),
+      "spanish",
+    );
+    await user.click(screen.getByRole("button", { name: /create .spanish./i }));
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    const tag = loadTags().find((t) => t.name === "spanish")!;
+    expect(tag).toBeDefined();
+    expect(getCard(a.id)!.tags).toEqual([tag.id]);
+  });
+
+  test("select all selects every filtered card; bulk delete removes them", async () => {
+    addCard({ word: "alpha", definition: "1" });
+    addCard({ word: "beta", definition: "2" });
+    const keep = addCard({ word: "gamma", definition: "3" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    // Filter down to alpha/beta, then select all visible.
+    await user.type(screen.getByPlaceholderText(/search/i), "et");
+    await user.click(screen.getByRole("checkbox", { name: /select all/i }));
+    expect(screen.getByText(/^1 selected$/)).toBeInTheDocument();
+    await user.clear(screen.getByPlaceholderText(/search/i));
+
+    // Clearing the filter resets the selection (bulk acts only on visible cards).
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /select alpha/i }));
+    await user.click(screen.getByRole("checkbox", { name: /select beta/i }));
+
+    const bar = screen.getByText(/^2 selected$/).parentElement!;
+    await user.click(within(bar).getByRole("button", { name: /^delete$/i }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    expect(loadCards().map((c) => c.id)).toEqual([keep.id]);
+  });
+
+  test("Untagged filter shows only untagged cards; picking a tag clears it", async () => {
+    const t = addTag("verbs")!;
+    addCard({ word: "alpha", definition: "1", tags: [t.id] });
+    addCard({ word: "beta", definition: "2" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("button", { name: /^untagged$/i }));
+    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(screen.queryByText("alpha")).not.toBeInTheDocument();
+
+    // Untagged is mutually exclusive with real tags.
+    await user.click(screen.getByRole("button", { name: /^verbs$/i }));
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.queryByText("beta")).not.toBeInTheDocument();
+  });
+
+  test("bulk-tagging untagged cards drops them from filter and selection", async () => {
+    const verbs = addTag("verbs")!;
+    const a = addCard({ word: "alpha", definition: "1" });
+    const b = addCard({ word: "beta", definition: "2" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("button", { name: /^untagged$/i }));
+    await user.click(screen.getByRole("checkbox", { name: /select all/i }));
+    await user.click(screen.getByRole("button", { name: /tags/i }));
+    await user.click(
+      await screen.findByRole("checkbox", { name: /tag verbs/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(getCard(a.id)!.tags).toEqual([verbs.id]);
+    expect(getCard(b.id)!.tags).toEqual([verbs.id]);
+    // Both cards left the Untagged filter, so the selection bar is gone.
+    expect(screen.queryByText(/^2 selected$/)).not.toBeInTheDocument();
+    expect(screen.getByText(/no matches\./i)).toBeInTheDocument();
+  });
+
+  test("shift-click selects a range", async () => {
+    addCard({ word: "gamma", definition: "3" });
+    addCard({ word: "beta", definition: "2" });
+    addCard({ word: "alpha", definition: "1" });
+    const user = userEvent.setup();
+    render(<CardsPage />);
+
+    await user.click(screen.getByRole("checkbox", { name: /select alpha/i }));
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByRole("checkbox", { name: /select gamma/i }));
+    await user.keyboard("{/Shift}");
+
+    expect(screen.getByText(/^3 selected$/)).toBeInTheDocument();
   });
 });
